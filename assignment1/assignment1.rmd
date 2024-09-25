@@ -1,0 +1,92 @@
+---
+header-includes:
+- \usepackage{fontspec}
+- \setmainfont{EB Garamond}
+- \setmonofont{Fira Mono}
+output:
+   pdf_document:
+     latex_engine: xelatex
+title: "Assignment 1"
+author: "Alexandra Shikunova "
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggrepel)
+options(ggrepel.max.overlaps = Inf)
+options(encoding = 'native.enc')
+```
+
+## Task 1
+
+- plot top 40 most common pub names in the UK
+- x axis: the symbol length of the name
+- y axis: the number of pubs with said name. 
+
+To create a dataframe containing the information that we are going to plot, we need to read the file by calling read_csv with a local path to `UK_pubs.csv`, next we apply an aggreate function `count()` to get the number of pubs with each unique name, write the names' lengths in characters to a column with `mutate()`.
+
+```{r pub_data, message=FALSE}
+to_plot <- read_csv("UK_pubs.csv") %>% 
+  count(pub_name, sort=TRUE) %>%
+  mutate(name_symbols=nchar(pub_name)) 
+```
+
+
+We then visualize the data: take the top 40 rows of the dataframe with `slice()`, declare the plot, specify the plot type, the x label, the y label, the title and the caption. `geom_text_repel()` takes care of labeling the points on the plot.
+
+```{r pub_plot, echo=TRUE}
+to_plot %>% 
+  slice(1:40) %>% 
+  ggplot(aes(name_symbols, n, label=pub_name)) +
+  geom_point() + 
+  labs(x="number of symbols", 
+       y="number of bars", 
+       title = "40 most popular bar names in UK", 
+       caption = "data from https://pudding.cool/2019/10/pubs/") +
+  geom_text_repel()
+```
+
+## Task 2
+
+- histogram of dots
+- x axis: respondent age
+- y axis: count
+- hue: repondent sex
+- *Ж/ж/женский/Женский* and *М/м/мужской/Мужской* map onto female and male respectively
+
+To map different values of the respodent's sex variable onto the binary (male/female), let us use a mapper function.
+
+```{r funcUnify, echo=TRUE, encoding = "UTF-8"}
+sexMapper <- function(s){
+  if(substr(tolower(s),1,1) == "м")
+    {"мужской"}
+  else
+    {"женский"}
+}
+```
+
+By applying the mapper as a function of vectors to the sex column of the dataset (read via `read_csv` from the local directory), and passing the result to `mutate()`, we get a new sex column with two unique values.
+
+```{r sexMutate, echo=TRUE}
+sexMapper <- Vectorize(sexMapper)
+sex_to_plot <- read_csv("mad_questionary.csv") %>%
+  mutate(sex=sexMapper(sex))
+```
+
+To take care of non-numeric values in the age column, we will split the value by the first space in the string and take the left part of the result. I then append a new age column to the dataframe. 
+
+```{r sexMutate2, echo=TRUE}
+sexMapper <- Vectorize(sexMapper)
+sex_to_plot <- sex_to_plot %>%
+  mutate(age=Vectorize(function(s){str_split_1(s, " ")[1]})(age))
+```
+
+Declare the plot, convert the string values in the age column to numbers, specify the plot type (`geom_dotplot` with `histodot` as the method argument), set the x label as age and the hue as sex. Let no label or ticks appear on the y axis: I have passed NULL as the first positional argument as well as the breaks argument to `scale_y_continuous()`.
+
+```{r sexPlot, echo=TRUE, message=FALSE, dev="png"}
+ sex_to_plot %>% ggplot(aes(as.numeric(age), fill=sex)) +
+  geom_dotplot(method="histodot", binwidth=1.5) +
+  labs(x="age", color="sex") + 
+  scale_y_continuous(NULL, breaks = NULL)
+```
